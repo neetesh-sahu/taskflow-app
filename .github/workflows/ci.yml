@@ -1,0 +1,67 @@
+name: TaskFlow CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      - name: Build Frontend
+        run: npm run build
+
+      - name: Install Gateway Dependencies
+        run: npm ci
+        working-directory: gateway
+
+      - name: Install Auth Service Dependencies
+        run: npm ci
+        working-directory: services/auth-service
+
+      - name: Install Task Service Dependencies
+        run: npm ci
+        working-directory: services/task-service
+
+      - name: Install User Service Dependencies
+        run: npm ci
+        working-directory: services/user-service
+
+      - name: Install Team Service Dependencies
+        run: npm ci
+        working-directory: team-service
+
+      - name: Build Docker Frontend
+        run: docker build -t taskflow-frontend .
+
+      - name: Build Docker Gateway
+        run: docker build -t taskflow-gateway ./gateway
+
+      - name: Build Docker Auth Service
+        run: docker build -t taskflow-auth ./services/auth-service
+
+      - name: Build Docker Task Service
+        run: docker build -t taskflow-task ./services/task-service
+
+      - name: Build Docker User Service
+        run: docker build -t taskflow-user ./services/user-service
+
+      - name: Build Docker Team Service
+        run: docker build -t taskflow-team ./team-service
