@@ -1,0 +1,2868 @@
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  LayoutDashboard,
+  CheckSquare,
+  CalendarDays,
+  BarChart3,
+  Users,
+  Settings,
+  Search,
+  Bell,
+  ChevronDown,
+  Plus,
+  Check,
+  Clock3,
+  AlertCircle,
+  Pencil,
+  Trash2,
+  MoreHorizontal,
+  ArrowRight,
+  Menu,
+  X,
+  Moon,
+  Sun,
+  Sparkles,
+  Mail,
+  UserPlus,
+  Send,
+  LogOut,
+  CircleUserRound,
+  Shield,
+  Zap,
+  TrendingUp,
+  Target,
+  Palette,
+  CheckCircle2,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+
+import {
+  signup,
+  login,
+  getProfile,
+  getTasks,
+  createTask,
+  updateTask,
+  deleteTask,
+  updateProfile,
+  getTeams,
+  createTeam,
+  getTeamMembers,
+  createInvitation,
+} from "./services/api";
+
+const THEME_KEY = "taskflow_theme";
+const TOKEN_KEY = "taskflow_token";
+
+const themes = [
+  {
+    id: "light",
+    label: "Light",
+    icon: Sun,
+  },
+  {
+    id: "dark",
+    label: "Dark",
+    icon: Moon,
+  },
+  {
+    id: "neon",
+    label: "Neon",
+    icon: Sparkles,
+  },
+];
+
+const initialMembers = [];
+
+function normalizeTask(task) {
+  return {
+    ...task,
+    id: task.id,
+    title: task.title || "Untitled Task",
+    description: task.description || "",
+    priority: capitalize(task.priority || "medium"),
+    status: normalizeStatus(task.status || "pending"),
+    due_date: task.due_date || "",
+  };
+}
+
+function capitalize(value) {
+  if (!value) return "";
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+}
+
+function normalizeStatus(value) {
+  const status = String(value).toLowerCase();
+
+  if (status === "in progress" || status === "in-progress") {
+    return "In Progress";
+  }
+
+  if (status === "completed" || status === "done") {
+    return "Completed";
+  }
+
+  return "Pending";
+}
+
+function Logo() {
+  return (
+    <div className="tf-logo">
+      <div className="tf-logo-mark">
+        <Check size={18} strokeWidth={3} />
+      </div>
+
+      <div className="tf-logo-text">
+        <strong>TaskFlow</strong>
+        <span>Work smarter</span>
+      </div>
+    </div>
+  );
+}
+
+function Avatar({ name = "Neetesh", size = "normal" }) {
+  const initials = name
+    .split(" ")
+    .map((word) => word[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  return (
+    <div className={`tf-avatar ${size}`}>
+      {initials}
+    </div>
+  );
+}
+
+function Toast({ toast, onClose }) {
+  if (!toast) return null;
+
+  const icon =
+    toast.type === "success" ? (
+      <CheckCircle2 size={18} />
+    ) : toast.type === "error" ? (
+      <AlertCircle size={18} />
+    ) : (
+      <Bell size={18} />
+    );
+
+  return (
+    <div className={`tf-toast ${toast.type || "info"}`}>
+      {icon}
+
+      <div>
+        <strong>{toast.title || "TaskFlow"}</strong>
+        <span>{toast.message}</span>
+      </div>
+
+      <button onClick={onClose}>
+        <X size={15} />
+      </button>
+    </div>
+  );
+}
+
+function ThemeSwitcher({ theme, setTheme }) {
+  return (
+    <div className="theme-switcher">
+      {themes.map(({ id, label, icon: Icon }) => (
+        <button
+          key={id}
+          className={theme === id ? "active" : ""}
+          onClick={() => setTheme(id)}
+          title={`${label} mode`}
+        >
+          <Icon size={15} />
+          <span>{label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Sidebar({
+  page,
+  setPage,
+  mobileOpen,
+  setMobileOpen,
+  user,
+  onLogout,
+}) {
+  const items = [
+    ["Dashboard", LayoutDashboard],
+    ["My Tasks", CheckSquare],
+    ["Calendar", CalendarDays],
+    ["Analytics", BarChart3],
+    ["Team", Users],
+    ["Settings", Settings],
+  ];
+
+  return (
+    <>
+      {mobileOpen && (
+        <div
+          className="tf-overlay"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      <aside className={`tf-sidebar ${mobileOpen ? "open" : ""}`}>
+        <div className="tf-sidebar-top">
+          <Logo />
+
+          <button
+            className="tf-icon-btn sidebar-close"
+            onClick={() => setMobileOpen(false)}
+          >
+            <X size={19} />
+          </button>
+        </div>
+
+        <div className="tf-workspace">
+          <div className="workspace-icon">
+            <Zap size={15} />
+          </div>
+
+          <div>
+            <small>WORKSPACE</small>
+            <strong>My Workspace</strong>
+          </div>
+
+          <ChevronDown size={14} />
+        </div>
+
+        <nav className="tf-nav">
+          <span className="nav-label">MENU</span>
+
+          {items.map(([name, Icon]) => (
+            <button
+              key={name}
+              className={`tf-nav-item ${
+                page === name ? "active" : ""
+              }`}
+              onClick={() => {
+                setPage(name);
+                setMobileOpen(false);
+              }}
+            >
+              <Icon size={18} />
+              <span>{name}</span>
+
+              {name === "Team" && (
+                <span className="nav-count">3</span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar-promo">
+          <div className="promo-icon">
+            <Sparkles size={17} />
+          </div>
+
+          <strong>Pro Workspace</strong>
+
+          <span>
+            Build faster with a focused workspace.
+          </span>
+
+          <button
+            onClick={() => setPage("Settings")}
+          >
+            Explore
+            <ArrowRight size={13} />
+          </button>
+        </div>
+
+        <div className="tf-profile-mini">
+          <Avatar name={user?.name || "Neetesh"} />
+
+          <div className="profile-mini-info">
+            <strong>{user?.name || "Neetesh"}</strong>
+            <span>{user?.email || "user@example.com"}</span>
+          </div>
+
+          <button
+            className="profile-logout"
+            title="Logout"
+            onClick={onLogout}
+          >
+            <LogOut size={15} />
+          </button>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function Topbar({
+  onMenu,
+  search,
+  setSearch,
+  theme,
+  setTheme,
+  user,
+  onLogout,
+}) {
+  return (
+    <header className="tf-topbar">
+      <button
+        className="tf-mobile-menu"
+        onClick={onMenu}
+      >
+        <Menu size={21} />
+      </button>
+
+      <div className="tf-search">
+        <Search size={17} />
+
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search tasks..."
+        />
+
+        {search && (
+          <button onClick={() => setSearch("")}>
+            <X size={14} />
+          </button>
+        )}
+      </div>
+
+      <div className="topbar-actions">
+        <div className="topbar-theme">
+          <ThemeSwitcher
+            theme={theme}
+            setTheme={setTheme}
+          />
+        </div>
+
+        <button className="tf-top-icon">
+          <Bell size={18} />
+          <span />
+        </button>
+
+        <div className="topbar-user">
+          <Avatar name={user?.name || "Neetesh"} />
+          <div>
+            <strong>{user?.name || "Neetesh"}</strong>
+            <span>Workspace</span>
+          </div>
+          <ChevronDown size={14} />
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function StatCard({ icon, value, label, tone, trend }) {
+  return (
+    <div className={`tf-stat-card ${tone}`}>
+      <div className="stat-top">
+        <div className="stat-icon">
+          {icon}
+        </div>
+
+        {trend && (
+          <span className="stat-trend">
+            <TrendingUp size={12} />
+            {trend}
+          </span>
+        )}
+      </div>
+
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function PageHeader({
+  title,
+  subtitle,
+  action,
+  actionLabel,
+  actionIcon,
+}) {
+  return (
+    <div className="tf-page-header">
+      <div>
+        <div className="eyebrow">TASKFLOW</div>
+        <h1>{title}</h1>
+        <p>{subtitle}</p>
+      </div>
+
+      {action && (
+        <button
+          className="tf-primary-btn"
+          onClick={action}
+        >
+          {actionIcon || <Plus size={17} />}
+          {actionLabel || "Add Task"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function EmptyState({ onAdd }) {
+  return (
+    <div className="tf-empty">
+      <div className="empty-icon">
+        <CheckSquare size={27} />
+      </div>
+
+      <h3>No tasks found</h3>
+
+      <p>
+        Start by creating your first task and keep
+        your work organized.
+      </p>
+
+      {onAdd && (
+        <button
+          className="tf-primary-btn"
+          onClick={onAdd}
+        >
+          <Plus size={16} />
+          Create Task
+        </button>
+      )}
+    </div>
+  );
+}
+
+function TaskRow({
+  task,
+  onToggle,
+  onEdit,
+  onDelete,
+  compact = false,
+}) {
+  return (
+    <div className={`tf-task-row ${compact ? "compact" : ""}`}>
+      <button
+        className={`task-check ${
+          task.status === "Completed" ? "checked" : ""
+        }`}
+        onClick={() => onToggle(task)}
+        title="Toggle task status"
+      >
+        {task.status === "Completed" && (
+          <Check size={13} strokeWidth={3} />
+        )}
+      </button>
+
+      <div className="task-main">
+        <strong>{task.title}</strong>
+
+        {!compact && task.description && (
+          <p>{task.description}</p>
+        )}
+
+        <span>
+          {task.due_date
+            ? `Due ${formatDate(task.due_date)}`
+            : "No due date"}
+        </span>
+      </div>
+
+      <span
+        className={`tf-pill priority-${task.priority.toLowerCase()}`}
+      >
+        {task.priority}
+      </span>
+
+      {!compact && (
+        <span
+          className={`tf-status status-${task.status
+            .toLowerCase()
+            .replace(" ", "-")}`}
+        >
+          {task.status}
+        </span>
+      )}
+
+      {!compact && (
+        <div className="task-actions">
+          <button onClick={() => onEdit(task)}>
+            <Pencil size={15} />
+          </button>
+
+          <button onClick={() => onDelete(task)}>
+            <Trash2 size={15} />
+          </button>
+
+          <button>
+            <MoreHorizontal size={16} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatDate(date) {
+  if (!date) return "";
+
+  try {
+    return new Date(date).toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }
+    );
+  } catch {
+    return date;
+  }
+}
+
+function Dashboard({
+  tasks,
+  setPage,
+  openTaskModal,
+  onToggle,
+}) {
+  const total = tasks.length;
+  const completed = tasks.filter(
+    (t) => t.status === "Completed"
+  ).length;
+
+  const progress = tasks.filter(
+    (t) => t.status === "In Progress"
+  ).length;
+
+  const pending = tasks.filter(
+    (t) => t.status === "Pending"
+  ).length;
+
+  const completion =
+    total === 0
+      ? 0
+      : Math.round((completed / total) * 100);
+
+  const recentTasks = tasks.slice(0, 5);
+
+  return (
+    <div className="tf-page">
+      <div className="dashboard-hero">
+        <div>
+          <span className="hero-kicker">
+            YOUR PRODUCTIVITY SPACE
+          </span>
+
+          <h1>
+            Good morning, Neetesh
+            <span> 👋</span>
+          </h1>
+
+          <p>
+            Stay focused. Keep shipping. Great things
+            take time.
+          </p>
+        </div>
+
+        <button
+          className="hero-add"
+          onClick={() => openTaskModal()}
+        >
+          <Plus size={18} />
+          New Task
+        </button>
+      </div>
+
+      <div className="tf-stats">
+        <StatCard
+          icon={<CheckSquare size={19} />}
+          value={total}
+          label="Total Tasks"
+          tone="blue"
+          trend="+12%"
+        />
+
+        <StatCard
+          icon={<Check size={20} />}
+          value={completed}
+          label="Completed"
+          tone="green"
+          trend="+8%"
+        />
+
+        <StatCard
+          icon={<Clock3 size={19} />}
+          value={progress}
+          label="In Progress"
+          tone="purple"
+        />
+
+        <StatCard
+          icon={<AlertCircle size={19} />}
+          value={pending}
+          label="Pending"
+          tone="orange"
+        />
+      </div>
+
+      <div className="tf-dashboard-grid">
+        <section className="tf-card">
+          <div className="tf-card-head">
+            <div>
+              <span className="card-kicker">
+                ACTIVITY
+              </span>
+              <h2>Recent Tasks</h2>
+              <p>Your latest work</p>
+            </div>
+
+            <button
+              className="tf-link-btn"
+              onClick={() => setPage("My Tasks")}
+            >
+              View all
+              <ArrowRight size={14} />
+            </button>
+          </div>
+
+          {recentTasks.length === 0 ? (
+            <EmptyState onAdd={openTaskModal} />
+          ) : (
+            <div className="task-list">
+              {recentTasks.map((task) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  compact
+                  onToggle={onToggle}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="tf-card progress-card">
+          <div className="tf-card-head">
+            <div>
+              <span className="card-kicker">
+                PERFORMANCE
+              </span>
+              <h2>Task Completion</h2>
+              <p>Your current progress</p>
+            </div>
+
+            <Target size={19} />
+          </div>
+
+          <div
+            className="progress-ring"
+            style={{
+              "--progress": `${completion}%`,
+            }}
+          >
+            <div>
+              <strong>{completion}%</strong>
+              <span>completed</span>
+            </div>
+          </div>
+
+          <div className="progress-summary">
+            <div>
+              <span>
+                <i className="dot green" />
+                Completed
+              </span>
+              <strong>{completed}</strong>
+            </div>
+
+            <div>
+              <span>
+                <i className="dot purple" />
+                In Progress
+              </span>
+              <strong>{progress}</strong>
+            </div>
+
+            <div>
+              <span>
+                <i className="dot orange" />
+                Pending
+              </span>
+              <strong>{pending}</strong>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section className="tf-card quick-actions">
+        <div>
+          <span className="card-kicker">QUICK ACTIONS</span>
+          <h2>Move your project forward</h2>
+        </div>
+
+        <div className="quick-action-grid">
+          <button onClick={() => openTaskModal()}>
+            <Plus size={18} />
+            <span>
+              <strong>Create Task</strong>
+              <small>Add something new</small>
+            </span>
+          </button>
+
+          <button onClick={() => setPage("Team")}>
+            <Users size={18} />
+            <span>
+              <strong>Invite Team</strong>
+              <small>Collaborate together</small>
+            </span>
+          </button>
+
+          <button onClick={() => setPage("Analytics")}>
+            <BarChart3 size={18} />
+            <span>
+              <strong>View Analytics</strong>
+              <small>Check your progress</small>
+            </span>
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function TasksPage({
+  tasks,
+  search,
+  openTaskModal,
+  onToggle,
+  onEdit,
+  onDelete,
+}) {
+  const [filter, setFilter] = useState("All");
+  const [sort, setSort] = useState("Due Date");
+
+  const filteredTasks = useMemo(() => {
+    let result = [...tasks];
+
+    if (filter !== "All") {
+      result = result.filter(
+        (task) => task.status === filter
+      );
+    }
+
+    if (search.trim()) {
+      const query = search.toLowerCase();
+
+      result = result.filter(
+        (task) =>
+          task.title.toLowerCase().includes(query) ||
+          task.description
+            .toLowerCase()
+            .includes(query)
+      );
+    }
+
+    if (sort === "Priority") {
+      const order = {
+        High: 1,
+        Medium: 2,
+        Low: 3,
+      };
+
+      result.sort(
+        (a, b) =>
+          order[a.priority] - order[b.priority]
+      );
+    }
+
+    if (sort === "Due Date") {
+      result.sort((a, b) =>
+        String(a.due_date || "").localeCompare(
+          String(b.due_date || "")
+        )
+      );
+    }
+
+    return result;
+  }, [tasks, filter, search, sort]);
+
+  return (
+    <div className="tf-page">
+      <PageHeader
+        title="My Tasks"
+        subtitle="Manage your work, stay productive and keep moving."
+        action={openTaskModal}
+        actionLabel="Add Task"
+      />
+
+      <section className="tf-card">
+        <div className="task-toolbar">
+          <div className="task-filters">
+            {[
+              "All",
+              "Pending",
+              "In Progress",
+              "Completed",
+            ].map((item) => (
+              <button
+                key={item}
+                className={
+                  filter === item ? "active" : ""
+                }
+                onClick={() => setFilter(item)}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+          >
+            <option>Due Date</option>
+            <option>Priority</option>
+          </select>
+        </div>
+
+        <div className="task-table-head">
+          <span>Task</span>
+          <span>Priority</span>
+          <span>Status</span>
+          <span>Due Date</span>
+          <span>Actions</span>
+        </div>
+
+        {filteredTasks.length === 0 ? (
+          <EmptyState onAdd={openTaskModal} />
+        ) : (
+          <div className="full-task-list">
+            {filteredTasks.map((task) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                onToggle={onToggle}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function CalendarPage({ tasks }) {
+  const [month, setMonth] = useState(
+    new Date(2026, 8, 1)
+  );
+
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+
+  const firstDay = new Date(
+    year,
+    monthIndex,
+    1
+  ).getDay();
+
+  const daysInMonth = new Date(
+    year,
+    monthIndex + 1,
+    0
+  ).getDate();
+
+  const cells = [];
+
+  for (let i = 0; i < firstDay; i++) {
+    cells.push(null);
+  }
+
+  for (let i = 1; i <= daysInMonth; i++) {
+    cells.push(i);
+  }
+
+  while (cells.length % 7 !== 0) {
+    cells.push(null);
+  }
+
+  const monthName = month.toLocaleDateString(
+    "en-US",
+    {
+      month: "long",
+      year: "numeric",
+    }
+  );
+
+  const tasksForDay = (day) => {
+    if (!day) return [];
+
+    return tasks.filter((task) => {
+      if (!task.due_date) return false;
+
+      const date = new Date(task.due_date);
+
+      return (
+        date.getFullYear() === year &&
+        date.getMonth() === monthIndex &&
+        date.getDate() === day
+      );
+    });
+  };
+
+  return (
+    <div className="tf-page">
+      <PageHeader
+        title="Calendar"
+        subtitle="See your workload and upcoming deadlines."
+      />
+
+      <section className="tf-card calendar-card">
+        <div className="calendar-header">
+          <button
+            className="tf-icon-btn"
+            onClick={() =>
+              setMonth(
+                new Date(year, monthIndex - 1, 1)
+              )
+            }
+          >
+            <ChevronLeft size={18} />
+          </button>
+
+          <h2>{monthName}</h2>
+
+          <button
+            className="tf-icon-btn"
+            onClick={() =>
+              setMonth(
+                new Date(year, monthIndex + 1, 1)
+              )
+            }
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+
+        <div className="calendar-weekdays">
+          {[
+            "Sun",
+            "Mon",
+            "Tue",
+            "Wed",
+            "Thu",
+            "Fri",
+            "Sat",
+          ].map((day) => (
+            <strong key={day}>{day}</strong>
+          ))}
+        </div>
+
+        <div className="calendar-grid">
+          {cells.map((day, index) => {
+            const dayTasks = tasksForDay(day);
+
+            return (
+              <div
+                className={`calendar-day ${
+                  !day ? "empty" : ""
+                }`}
+                key={index}
+              >
+                {day && (
+                  <>
+                    <span className="calendar-number">
+                      {day}
+                    </span>
+
+                    <div className="calendar-events">
+                      {dayTasks.slice(0, 2).map((task) => (
+                        <div
+                          key={task.id}
+                          className={`calendar-event ${task.priority.toLowerCase()}`}
+                        >
+                          {task.title}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AnalyticsPage({ tasks }) {
+  const total = tasks.length;
+  const completed = tasks.filter(
+    (task) => task.status === "Completed"
+  ).length;
+
+  const progress = tasks.filter(
+    (task) => task.status === "In Progress"
+  ).length;
+
+  const pending = tasks.filter(
+    (task) => task.status === "Pending"
+  ).length;
+
+  const completion =
+    total === 0
+      ? 0
+      : Math.round((completed / total) * 100);
+
+  const bars = [
+    Math.max(15, Math.min(100, total * 10)),
+    Math.max(20, Math.min(100, completed * 13)),
+    Math.max(25, Math.min(100, progress * 20)),
+    Math.max(30, Math.min(100, pending * 17)),
+    Math.max(20, completion),
+    Math.max(30, completion + 8),
+    Math.max(35, completion + 14),
+  ];
+
+  return (
+    <div className="tf-page">
+      <PageHeader
+        title="Analytics"
+        subtitle="Understand your productivity and project momentum."
+      />
+
+      <div className="tf-stats analytics-stats">
+        <StatCard
+          icon={<CheckSquare size={19} />}
+          value={total}
+          label="Total Tasks"
+          tone="blue"
+        />
+
+        <StatCard
+          icon={<Check size={20} />}
+          value={`${completion}%`}
+          label="Completion Rate"
+          tone="green"
+        />
+
+        <StatCard
+          icon={<Clock3 size={19} />}
+          value={progress}
+          label="In Progress"
+          tone="purple"
+        />
+
+        <StatCard
+          icon={<Target size={19} />}
+          value={pending}
+          label="Pending"
+          tone="orange"
+        />
+      </div>
+
+      <div className="analytics-grid">
+        <section className="tf-card">
+          <div className="tf-card-head">
+            <div>
+              <span className="card-kicker">
+                OVERVIEW
+              </span>
+              <h2>Task Activity</h2>
+              <p>Recent productivity trend</p>
+            </div>
+
+            <TrendingUp size={19} />
+          </div>
+
+          <div className="analytics-chart">
+            <div className="chart-grid-lines">
+              <span />
+              <span />
+              <span />
+              <span />
+            </div>
+
+            <div className="chart-bars">
+              {bars.map((height, index) => (
+                <div
+                  className="chart-bar-wrap"
+                  key={index}
+                >
+                  <div
+                    className="chart-bar"
+                    style={{
+                      height: `${height}%`,
+                    }}
+                  />
+                  <small>
+                    {["M", "T", "W", "T", "F", "S", "S"][
+                      index
+                    ]}
+                  </small>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="tf-card">
+          <div className="tf-card-head">
+            <div>
+              <span className="card-kicker">
+                BREAKDOWN
+              </span>
+              <h2>Task Status</h2>
+            </div>
+          </div>
+
+          <div className="analytics-breakdown">
+            <div>
+              <span>
+                <i className="dot green" />
+                Completed
+              </span>
+              <strong>{completed}</strong>
+            </div>
+
+            <div>
+              <span>
+                <i className="dot purple" />
+                In Progress
+              </span>
+              <strong>{progress}</strong>
+            </div>
+
+            <div>
+              <span>
+                <i className="dot orange" />
+                Pending
+              </span>
+              <strong>{pending}</strong>
+            </div>
+          </div>
+
+          <div className="mini-progress">
+            <span
+              style={{
+                width: `${completion}%`,
+              }}
+            />
+          </div>
+
+          <p className="analytics-note">
+            {completion >= 70
+              ? "Excellent momentum. Keep it going."
+              : "Keep completing tasks to improve your score."}
+          </p>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function TeamPage({
+  team,
+  members,
+  invitations,
+  openInvite,
+  onCancelInvite,
+}) {
+  return (
+    <div className="tf-page">
+      <PageHeader
+        title="Team Collaboration"
+        subtitle="Work together, share progress and build better things."
+        action={openInvite}
+        actionLabel="Invite Member"
+        actionIcon={<UserPlus size={17} />}
+      />
+
+      <div className="team-hero">
+        <div className="team-hero-icon">
+          <Users size={27} />
+        </div>
+
+        <div>
+          <strong>
+            Your workspace has {members.length} members
+          </strong>
+          <span>
+            Invite developers, designers and DevOps
+            teammates to collaborate.
+          </span>
+        </div>
+
+        <button
+          className="tf-secondary-btn"
+          onClick={openInvite}
+        >
+          <Send size={15} />
+          Invite
+        </button>
+      </div>
+
+      <div className="team-grid">
+        <section className="tf-card">
+          <div className="tf-card-head">
+            <div>
+              <span className="card-kicker">
+                WORKSPACE
+              </span>
+              <h2>Team Members</h2>
+              <p>People working in {team?.name || "your workspace"}</p>
+            </div>
+
+            <span className="member-count">
+              {members.length}
+            </span>
+          </div>
+
+          <div className="member-list">
+            {members.map((member) => (
+              <div className="member-row" key={member.id}>
+                <div className="member-avatar-wrap">
+                  <Avatar name={member.name} />
+                  <span
+                    className={`presence ${member.status}`}
+                  />
+                </div>
+
+                <div className="member-info">
+                  <strong>{member.name}</strong>
+                  <span>{member.email}</span>
+                </div>
+
+                <span className="role-badge">
+                  {member.role}
+                </span>
+
+                <button className="member-menu">
+                  <MoreHorizontal size={17} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="tf-card invite-card">
+          <div className="invite-visual">
+            <div>
+              <Mail size={24} />
+            </div>
+            <span />
+            <span />
+            <span />
+          </div>
+
+          <h2>Bring your team together</h2>
+
+          <p>
+            Invite teammates using their email address.
+            They can join your TaskFlow workspace and
+            collaborate on projects.
+          </p>
+
+          <button
+            className="tf-primary-btn full"
+            onClick={openInvite}
+          >
+            <UserPlus size={16} />
+            Invite someone
+          </button>
+        </section>
+      </div>
+
+      <section className="tf-card pending-card">
+        <div className="tf-card-head">
+          <div>
+            <span className="card-kicker">
+              INVITATIONS
+            </span>
+            <h2>Pending Invitations</h2>
+            <p>Invites waiting for a response</p>
+          </div>
+        </div>
+
+        {invitations.length === 0 ? (
+          <div className="empty-invites">
+            <Mail size={21} />
+            <span>No pending invitations.</span>
+          </div>
+        ) : (
+          <div className="invite-list">
+            {invitations.map((invite) => (
+              <div
+                className="invite-row"
+                key={invite.id}
+              >
+                <div className="invite-avatar">
+                  <Mail size={17} />
+                </div>
+
+                <div>
+                  <strong>{invite.email}</strong>
+                  <span>
+                    {invite.role} • {invite.date}
+                  </span>
+                </div>
+
+                <span className="pending-badge">
+                  Pending
+                </span>
+
+                <button
+                  className="cancel-invite"
+                  onClick={() =>
+                    onCancelInvite(invite.id)
+                  }
+                >
+                  Cancel
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function SettingsPage({
+  user,
+  theme,
+  setTheme,
+  onProfileUpdate,
+}) {
+  const [name, setName] = useState(user?.name || "");
+  const [email, setEmail] = useState(
+    user?.email || ""
+  );
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setName(user?.name || "");
+    setEmail(user?.email || "");
+  }, [user]);
+
+  const save = async () => {
+    setSaving(true);
+
+    try {
+      await onProfileUpdate({
+        name,
+        email,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="tf-page">
+      <PageHeader
+        title="Settings"
+        subtitle="Manage your profile, appearance and workspace preferences."
+      />
+
+      <div className="settings-grid">
+        <section className="tf-card settings-profile">
+          <div className="tf-card-head">
+            <div>
+              <span className="card-kicker">
+                PROFILE
+              </span>
+              <h2>Profile Information</h2>
+              <p>Keep your account details updated.</p>
+            </div>
+
+            <CircleUserRound size={21} />
+          </div>
+
+          <div className="settings-avatar">
+            <Avatar
+              name={name || "Neetesh"}
+              size="large"
+            />
+
+            <div>
+              <strong>{name || "Your Name"}</strong>
+              <span>{email}</span>
+            </div>
+          </div>
+
+          <label className="tf-field">
+            Name
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+            />
+          </label>
+
+          <label className="tf-field">
+            Email
+            <input
+              value={email}
+              onChange={(e) =>
+                setEmail(e.target.value)
+              }
+              placeholder="you@example.com"
+            />
+          </label>
+
+          <button
+            className="tf-primary-btn"
+            onClick={save}
+            disabled={saving}
+          >
+            {saving ? (
+              <Loader2
+                size={16}
+                className="spin"
+              />
+            ) : (
+              <Check size={16} />
+            )}
+
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
+        </section>
+
+        <section className="tf-card">
+          <div className="tf-card-head">
+            <div>
+              <span className="card-kicker">
+                APPEARANCE
+              </span>
+              <h2>Choose your vibe</h2>
+              <p>
+                Switch between different TaskFlow
+                visual styles.
+              </p>
+            </div>
+
+            <Palette size={20} />
+          </div>
+
+          <ThemeSwitcher
+            theme={theme}
+            setTheme={setTheme}
+          />
+
+          <div className="theme-preview">
+            <div className="preview-window">
+              <div />
+              <div />
+              <div />
+            </div>
+
+            <div>
+              <strong>
+                {theme === "neon"
+                  ? "Neon Workspace"
+                  : theme === "dark"
+                  ? "Dark Workspace"
+                  : "Light Workspace"}
+              </strong>
+
+              <span>
+                Your preference is saved automatically.
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <section className="tf-card security-card">
+          <div className="tf-card-head">
+            <div>
+              <span className="card-kicker">
+                SECURITY
+              </span>
+              <h2>Account Security</h2>
+            </div>
+
+            <Shield size={20} />
+          </div>
+
+          <div className="security-row">
+            <div className="security-icon">
+              <Shield size={17} />
+            </div>
+
+            <div>
+              <strong>JWT Authentication</strong>
+              <span>
+                Your session is protected using
+                token-based authentication.
+              </span>
+            </div>
+
+            <span className="secure-badge">
+              Active
+            </span>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function LandingPage({ setAuthPage }) {
+  return (
+    <div className="tf-landing">
+      <div className="ambient ambient-one" />
+      <div className="ambient ambient-two" />
+      <div className="ambient ambient-three" />
+
+      <nav className="landing-nav">
+        <Logo />
+
+        <div className="landing-links">
+          <a href="#features">Features</a>
+          <a href="#workflow">Workflow</a>
+          <a href="#team">Collaboration</a>
+        </div>
+
+        <div className="landing-actions">
+          <button
+            className="tf-ghost-btn"
+            onClick={() => setAuthPage("Login")}
+          >
+            Login
+          </button>
+
+          <button
+            className="tf-primary-btn"
+            onClick={() => setAuthPage("Signup")}
+          >
+            Get Started
+            <ArrowRight size={15} />
+          </button>
+        </div>
+      </nav>
+
+      <main className="landing-main">
+        <div className="landing-copy">
+          <div className="landing-badge">
+            <Sparkles size={14} />
+            Built for productive teams
+          </div>
+
+          <h1>
+            Organize today.
+            <span>Build better tomorrow.</span>
+          </h1>
+
+          <p>
+            TaskFlow brings tasks, teams and progress
+            into one beautiful workspace designed for
+            people who love getting things done.
+          </p>
+
+          <div className="landing-cta">
+            <button
+              className="tf-primary-btn large"
+              onClick={() => setAuthPage("Signup")}
+            >
+              Start for free
+              <ArrowRight size={17} />
+            </button>
+
+            <button
+              className="tf-outline-btn large"
+              onClick={() => setAuthPage("Login")}
+            >
+              I already have an account
+            </button>
+          </div>
+
+          <div className="landing-trust">
+            <div>
+              <CheckCircle2 size={15} />
+              Simple task management
+            </div>
+
+            <div>
+              <CheckCircle2 size={15} />
+              Team collaboration
+            </div>
+
+            <div>
+              <CheckCircle2 size={15} />
+              Productivity analytics
+            </div>
+          </div>
+        </div>
+
+        <div className="landing-dashboard">
+          <div className="dashboard-glow" />
+
+          <div className="mock-window">
+            <div className="mock-top">
+              <div className="mock-dots">
+                <i />
+                <i />
+                <i />
+              </div>
+
+              <span>taskflow / dashboard</span>
+
+              <MoreHorizontal size={16} />
+            </div>
+
+            <div className="mock-body">
+              <div className="mock-sidebar">
+                <div className="mock-logo">
+                  <span>
+                    <Check size={11} />
+                  </span>
+                  TaskFlow
+                </div>
+
+                {[
+                  LayoutDashboard,
+                  CheckSquare,
+                  CalendarDays,
+                  BarChart3,
+                  Users,
+                ].map((Icon, i) => (
+                  <div
+                    className={
+                      i === 0
+                        ? "mock-nav active"
+                        : "mock-nav"
+                    }
+                    key={i}
+                  >
+                    <Icon size={13} />
+                  </div>
+                ))}
+              </div>
+
+              <div className="mock-content">
+                <div className="mock-heading">
+                  <div>
+                    <small>Good morning 👋</small>
+                    <strong>Your workspace</strong>
+                  </div>
+
+                  <div className="mock-avatar">
+                    NS
+                  </div>
+                </div>
+
+                <div className="mock-stats">
+                  <div>
+                    <span />
+                    <strong>12</strong>
+                    <small>Tasks</small>
+                  </div>
+
+                  <div>
+                    <span />
+                    <strong>7</strong>
+                    <small>Done</small>
+                  </div>
+
+                  <div>
+                    <span />
+                    <strong>3</strong>
+                    <small>Active</small>
+                  </div>
+                </div>
+
+                <div className="mock-panel">
+                  <div className="mock-panel-title">
+                    <strong>Recent tasks</strong>
+                    <small>View all</small>
+                  </div>
+
+                  {[
+                    "Build CI/CD pipeline",
+                    "Deploy backend on AWS",
+                    "Design database",
+                    "Write documentation",
+                  ].map((task, i) => (
+                    <div
+                      className="mock-task"
+                      key={task}
+                    >
+                      <span
+                        className={
+                          i < 2 ? "done" : ""
+                        }
+                      >
+                        {i < 2 && <Check size={8} />}
+                      </span>
+
+                      <strong>{task}</strong>
+
+                      <small>
+                        {i < 2
+                          ? "Done"
+                          : "Today"}
+                      </small>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="floating-card floating-one">
+            <CheckCircle2 size={17} />
+            <div>
+              <strong>Great progress!</strong>
+              <span>58% completed</span>
+            </div>
+          </div>
+
+          <div className="floating-card floating-two">
+            <Users size={17} />
+            <div>
+              <strong>Team online</strong>
+              <span>3 members active</span>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <div className="landing-bottom">
+        <span>Built with</span>
+        <strong>React</strong>
+        <strong>Node.js</strong>
+        <strong>PostgreSQL</strong>
+        <strong>Docker</strong>
+        <strong>AWS</strong>
+      </div>
+    </div>
+  );
+}
+
+function AuthPage({
+  type,
+  setAuthPage,
+  onAuth,
+  loading,
+}) {
+  const signupMode = type === "Signup";
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] =
+    useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+
+    await onAuth(
+      signupMode
+        ? {
+            type: "signup",
+            name,
+            email,
+            password,
+          }
+        : {
+            type: "login",
+            email,
+            password,
+          }
+    );
+  };
+
+  return (
+    <div className="tf-auth">
+      <div className="auth-background">
+        <div />
+        <div />
+        <div />
+      </div>
+
+      <button
+        className="auth-back"
+        onClick={() => setAuthPage("Landing")}
+      >
+        <ChevronLeft size={16} />
+        Back to TaskFlow
+      </button>
+
+      <div className="auth-card">
+        <div className="auth-logo-wrap">
+          <Logo />
+        </div>
+
+        <div className="auth-heading">
+          <span className="landing-badge">
+            {signupMode
+              ? "Create your workspace"
+              : "Welcome back"}
+          </span>
+
+          <h1>
+            {signupMode
+              ? "Create your account"
+              : "Welcome back"}
+          </h1>
+
+          <p>
+            {signupMode
+              ? "Start organizing your work with TaskFlow."
+              : "Login to continue to your workspace."}
+          </p>
+        </div>
+
+        <form onSubmit={submit}>
+          {signupMode && (
+            <label className="tf-field">
+              Full Name
+              <input
+                value={name}
+                onChange={(e) =>
+                  setName(e.target.value)
+                }
+                placeholder="Neetesh Sahu"
+                required
+              />
+            </label>
+          )}
+
+          <label className="tf-field">
+            Email
+            <input
+              type="email"
+              value={email}
+              onChange={(e) =>
+                setEmail(e.target.value)
+              }
+              placeholder="you@example.com"
+              required
+            />
+          </label>
+
+          <label className="tf-field">
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(e) =>
+                setPassword(e.target.value)
+              }
+              placeholder="••••••••"
+              required
+              minLength={6}
+            />
+          </label>
+
+          {!signupMode && (
+            <div className="forgot-link">
+              Forgot password?
+            </div>
+          )}
+
+          <button
+            className="tf-primary-btn auth-submit"
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader2
+                  size={17}
+                  className="spin"
+                />
+                Please wait...
+              </>
+            ) : (
+              <>
+                {signupMode
+                  ? "Create Account"
+                  : "Login"}
+                <ArrowRight size={16} />
+              </>
+            )}
+          </button>
+        </form>
+
+        <div className="auth-divider">
+          <span>OR</span>
+        </div>
+
+        <div className="social-buttons">
+          <button>
+            Continue with Google
+          </button>
+
+          <button>
+            Continue with GitHub
+          </button>
+        </div>
+
+        <div className="auth-switch">
+          {signupMode
+            ? "Already have an account?"
+            : "Don't have an account?"}
+
+          <button
+            onClick={() =>
+              setAuthPage(
+                signupMode ? "Login" : "Signup"
+              )
+            }
+          >
+            {signupMode ? "Login" : "Sign Up"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskModal({
+  task,
+  onClose,
+  onSave,
+  loading,
+}) {
+  const editing = Boolean(task);
+
+  const [title, setTitle] = useState(
+    task?.title || ""
+  );
+  const [description, setDescription] =
+    useState(task?.description || "");
+  const [priority, setPriority] = useState(
+    String(task?.priority || "Medium").toLowerCase()
+  );
+  const [status, setStatus] = useState(
+    String(task?.status || "Pending")
+      .toLowerCase()
+      .replace(" ", "-")
+  );
+  const [dueDate, setDueDate] = useState(
+    task?.due_date || ""
+  );
+
+  const submit = async (e) => {
+    e.preventDefault();
+
+    await onSave({
+      title,
+      description,
+      priority,
+      status,
+      due_date: dueDate || null,
+    });
+  };
+
+  return (
+    <div className="modal-backdrop">
+      <div className="task-modal">
+        <div className="modal-head">
+          <div>
+            <span className="card-kicker">
+              TASKFLOW
+            </span>
+
+            <h2>
+              {editing
+                ? "Edit Task"
+                : "Create New Task"}
+            </h2>
+
+            <p>
+              {editing
+                ? "Update your task details."
+                : "Add something you want to accomplish."}
+            </p>
+          </div>
+
+          <button
+            className="tf-icon-btn"
+            onClick={onClose}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={submit}>
+          <label className="tf-field">
+            Task Title
+            <input
+              value={title}
+              onChange={(e) =>
+                setTitle(e.target.value)
+              }
+              placeholder="e.g. Setup CI/CD pipeline"
+              required
+            />
+          </label>
+
+          <label className="tf-field">
+            Description
+            <textarea
+              value={description}
+              onChange={(e) =>
+                setDescription(e.target.value)
+              }
+              placeholder="What needs to be done?"
+              rows={4}
+            />
+          </label>
+
+          <div className="modal-two-col">
+            <label className="tf-field">
+              Priority
+              <select
+                value={priority}
+                onChange={(e) =>
+                  setPriority(e.target.value)
+                }
+              >
+                <option value="low">Low</option>
+                <option value="medium">
+                  Medium
+                </option>
+                <option value="high">High</option>
+              </select>
+            </label>
+
+            <label className="tf-field">
+              Status
+              <select
+                value={status}
+                onChange={(e) =>
+                  setStatus(e.target.value)
+                }
+              >
+                <option value="pending">
+                  Pending
+                </option>
+                <option value="in-progress">
+                  In Progress
+                </option>
+                <option value="completed">
+                  Completed
+                </option>
+              </select>
+            </label>
+          </div>
+
+          <label className="tf-field">
+            Due Date
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) =>
+                setDueDate(e.target.value)
+              }
+            />
+          </label>
+
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="tf-outline-btn"
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+
+            <button
+              className="tf-primary-btn"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2
+                    size={16}
+                    className="spin"
+                  />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Check size={16} />
+                  {editing
+                    ? "Update Task"
+                    : "Create Task"}
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function InviteModal({ onClose, onInvite, loading }) {
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("Developer");
+
+  const submit = async (e) => {
+    e.preventDefault();
+
+    await onInvite({
+      email,
+      role,
+    });
+  };
+
+  return (
+    <div className="modal-backdrop">
+      <div className="invite-modal">
+        <div className="invite-modal-icon">
+          <UserPlus size={23} />
+        </div>
+
+        <button
+          className="modal-close"
+          onClick={onClose}
+        >
+          <X size={18} />
+        </button>
+
+        <span className="card-kicker">
+          TEAM COLLABORATION
+        </span>
+
+        <h2>Invite a teammate</h2>
+
+        <p>
+          Send an invitation to someone you want to
+          collaborate with.
+        </p>
+
+        <form onSubmit={submit}>
+          <label className="tf-field">
+            Email Address
+            <div className="input-with-icon">
+              <Mail size={16} />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) =>
+                  setEmail(e.target.value)
+                }
+                placeholder="developer@example.com"
+                required
+              />
+            </div>
+          </label>
+
+          <label className="tf-field">
+            Role
+            <select
+              value={role}
+              onChange={(e) =>
+                setRole(e.target.value)
+              }
+            >
+              <option>Developer</option>
+              <option>DevOps</option>
+              <option>Designer</option>
+              <option>Project Manager</option>
+              <option>Viewer</option>
+            </select>
+          </label>
+
+          <div className="invite-info">
+            <Mail size={15} />
+            <span>
+              An invitation will appear in your pending
+              invitations list.
+            </span>
+          </div>
+
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="tf-outline-btn"
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+
+            <button
+              className="tf-primary-btn"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2
+                    size={16}
+                    className="spin"
+                  />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send size={16} />
+                  Send Invite
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [authPage, setAuthPage] =
+    useState("Landing");
+
+  const [page, setPage] =
+    useState("Dashboard");
+
+  const [token, setToken] = useState(
+    () => localStorage.getItem(TOKEN_KEY)
+  );
+
+  const [user, setUser] = useState(null);
+  const [tasks, setTasks] = useState([]);
+
+  const [loading, setLoading] = useState(false);
+  const [taskLoading, setTaskLoading] =
+    useState(false);
+
+  const [mobileOpen, setMobileOpen] =
+    useState(false);
+
+  const [search, setSearch] = useState("");
+
+  const [taskModal, setTaskModal] =
+    useState(null);
+
+  const [inviteModal, setInviteModal] =
+    useState(false);
+
+  const [theme, setThemeState] = useState(
+    () =>
+      localStorage.getItem(THEME_KEY) ||
+      "light"
+  );
+
+  const [toast, setToast] = useState(null);
+
+  const [members, setMembers] =
+    useState(initialMembers);
+
+  const [invitations, setInvitations] =
+    useState([]);
+
+  const [team, setTeam] = useState(null);
+  const [teamLoading, setTeamLoading] =
+    useState(false);
+
+  const showToast = (
+    message,
+    type = "success",
+    title = "TaskFlow"
+  ) => {
+    setToast({
+      message,
+      type,
+      title,
+    });
+
+    setTimeout(() => {
+      setToast(null);
+    }, 3500);
+  };
+
+  const setTheme = (newTheme) => {
+    setThemeState(newTheme);
+    localStorage.setItem(
+      THEME_KEY,
+      newTheme
+    );
+  };
+
+  useEffect(() => {
+    document.documentElement.setAttribute(
+      "data-theme",
+      theme
+    );
+  }, [theme]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    loadApplication();
+  }, [token]);
+
+  const loadApplication = async () => {
+    try {
+      setLoading(true);
+
+      const profile = await getProfile(token);
+      setUser(profile.user || profile);
+
+      const taskResponse = await getTasks(token);
+
+      const serverTasks =
+        taskResponse.tasks ||
+        taskResponse.data ||
+        [];
+
+      setTasks(serverTasks.map(normalizeTask));
+
+      // Team Service is independent from the core application.
+      // If it is unavailable, keep the user logged in and show an empty team.
+      try {
+        setTeamLoading(true);
+
+        const teamResponse = await getTeams(token);
+        let teams = teamResponse.teams || teamResponse.data || [];
+
+        let currentTeam = teams[0] || null;
+
+        // Create the first workspace automatically for a new account.
+        if (!currentTeam) {
+          const created = await createTeam(token, {
+            name: "TaskFlow Team",
+          });
+
+          currentTeam =
+            created.team ||
+            created.data?.team ||
+            null;
+        }
+
+        setTeam(currentTeam);
+
+        if (currentTeam?.id) {
+          const memberResponse = await getTeamMembers(
+            token,
+            currentTeam.id
+          );
+
+          const serverMembers =
+            memberResponse.members ||
+            memberResponse.data ||
+            [];
+
+          setMembers(
+            serverMembers.map((member) => ({
+              id: member.user_id || member.id,
+              name: member.name || "Team Member",
+              email: member.email || "",
+              role: capitalize(member.role || "member"),
+              status: "online",
+              initials: (member.name || "TM")
+                .split(" ")
+                .map((part) => part[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase(),
+            }))
+          );
+        } else {
+          setMembers([]);
+        }
+      } catch (teamError) {
+        console.error(
+          "[TaskFlow] Team Service error:",
+          teamError
+        );
+        setTeam(null);
+        setMembers([]);
+      } finally {
+        setTeamLoading(false);
+      }
+
+      setAuthPage("App");
+    } catch (error) {
+      console.error(
+        "[TaskFlow] Application load error:",
+        error
+      );
+
+      // Only clear the session for an authentication failure.
+      if (
+        /401|403|invalid|expired|authentication|token/i.test(
+          error.message || ""
+        )
+      ) {
+        localStorage.removeItem(TOKEN_KEY);
+        setToken(null);
+        setUser(null);
+        setTasks([]);
+
+        showToast(
+          "Your session expired. Please login again.",
+          "error",
+          "Session expired"
+        );
+      } else {
+        showToast(
+          error.message ||
+            "Unable to load your workspace.",
+          "error",
+          "Workspace error"
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAuth = async (credentials) => {
+    try {
+      setLoading(true);
+
+      const response =
+        credentials.type === "signup"
+          ? await signup({
+              name: credentials.name,
+              email: credentials.email,
+              password: credentials.password,
+            })
+          : await login({
+              email: credentials.email,
+              password: credentials.password,
+            });
+
+      const newToken = response.token;
+
+      localStorage.setItem(
+        TOKEN_KEY,
+        newToken
+      );
+
+      setToken(newToken);
+      setUser(response.user);
+
+      showToast(
+        credentials.type === "signup"
+          ? "Your TaskFlow account has been created."
+          : "Welcome back to your workspace.",
+        "success",
+        credentials.type === "signup"
+          ? "Account created"
+          : "Login successful"
+      );
+
+      setAuthPage("App");
+      setPage("Dashboard");
+    } catch (error) {
+      showToast(
+        error.message || "Authentication failed.",
+        "error",
+        "Authentication error"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem(TOKEN_KEY);
+    setToken(null);
+    setUser(null);
+    setTasks([]);
+    setAuthPage("Landing");
+    setPage("Dashboard");
+
+    showToast(
+      "You have been logged out.",
+      "info",
+      "Logged out"
+    );
+  };
+
+  const refreshTasks = async () => {
+    const response = await getTasks(token);
+
+    const serverTasks =
+      response.tasks ||
+      response.data ||
+      [];
+
+    setTasks(serverTasks.map(normalizeTask));
+  };
+
+  const saveTask = async (taskData) => {
+    try {
+      setTaskLoading(true);
+
+      if (taskModal?.mode === "edit") {
+        await updateTask(
+          token,
+          taskModal.task.id,
+          taskData
+        );
+
+        showToast(
+          "Task updated successfully.",
+          "success",
+          "Task updated"
+        );
+      } else {
+        await createTask(token, taskData);
+
+        showToast(
+          "New task created successfully.",
+          "success",
+          "Task created"
+        );
+      }
+
+      await refreshTasks();
+
+      setTaskModal(null);
+    } catch (error) {
+      showToast(
+        error.message || "Unable to save task.",
+        "error",
+        "Task error"
+      );
+    } finally {
+      setTaskLoading(false);
+    }
+  };
+
+  const removeTask = async (task) => {
+    const confirmed = window.confirm(
+      `Delete "${task.title}"?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await deleteTask(token, task.id);
+
+      setTasks((current) =>
+        current.filter(
+          (item) => item.id !== task.id
+        )
+      );
+
+      showToast(
+        "Task deleted successfully.",
+        "success",
+        "Task deleted"
+      );
+    } catch (error) {
+      showToast(
+        error.message || "Unable to delete task.",
+        "error",
+        "Delete failed"
+      );
+    }
+  };
+
+  const toggleTask = async (task) => {
+    const nextStatus =
+      task.status === "Completed"
+        ? "pending"
+        : "completed";
+
+    try {
+      await updateTask(token, task.id, {
+        title: task.title,
+        description: task.description,
+        priority: task.priority.toLowerCase(),
+        status: nextStatus,
+        due_date: task.due_date || null,
+      });
+
+      setTasks((current) =>
+        current.map((item) =>
+          item.id === task.id
+            ? {
+                ...item,
+                status:
+                  nextStatus === "completed"
+                    ? "Completed"
+                    : "Pending",
+              }
+            : item
+        )
+      );
+    } catch (error) {
+      showToast(
+        error.message || "Unable to update task.",
+        "error",
+        "Task error"
+      );
+    }
+  };
+
+  const saveProfile = async (profileData) => {
+    try {
+      const response = await updateProfile(
+        token,
+        profileData
+      );
+
+      const updatedUser =
+        response.user || response;
+
+      setUser(updatedUser);
+
+      showToast(
+        "Profile updated successfully.",
+        "success",
+        "Profile saved"
+      );
+    } catch (error) {
+      showToast(
+        error.message || "Unable to update profile.",
+        "error",
+        "Profile error"
+      );
+    }
+  };
+
+  const inviteMember = async ({ email, role }) => {
+    if (!team?.id) {
+      showToast(
+        "Your team workspace is not ready yet.",
+        "error",
+        "Team unavailable"
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await createInvitation(
+        token,
+        team.id,
+        { email: email.trim().toLowerCase() }
+      );
+
+      const invitation = response.invitation || {};
+
+      const newInvitation = {
+        id: invitation.id || Date.now(),
+        email: invitation.email || email,
+        role,
+        date: invitation.expiresAt
+          ? `Expires ${formatDate(invitation.expiresAt)}`
+          : "Pending",
+        inviteUrl: response.inviteUrl || "",
+      };
+
+      setInvitations((current) => [
+        newInvitation,
+        ...current,
+      ]);
+
+      setInviteModal(false);
+
+      showToast(
+        response.inviteUrl
+          ? `Invitation created for ${email}. Invite link is ready.`
+          : `Invitation created for ${email}.`,
+        "success",
+        "Invitation created"
+      );
+
+      if (response.inviteUrl) {
+        console.log(
+          "[TaskFlow] Invite URL:",
+          response.inviteUrl
+        );
+      }
+    } catch (error) {
+      console.error(
+        "[TaskFlow] Invitation error:",
+        error
+      );
+
+      showToast(
+        error.message ||
+          "Unable to create invitation.",
+        "error",
+        "Invitation failed"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelInvitation = (id) => {
+    setInvitations((current) =>
+      current.filter(
+        (invite) => invite.id !== id
+      )
+    );
+
+    showToast(
+      "Invitation cancelled.",
+      "info",
+      "Invitation cancelled"
+    );
+  };
+
+  const openTaskModal = (task = null) => {
+    setTaskModal(
+      task
+        ? {
+            mode: "edit",
+            task,
+          }
+        : {
+            mode: "create",
+            task: null,
+          }
+    );
+  };
+
+  if (authPage === "Landing" && !token) {
+    return (
+      <>
+        <LandingPage setAuthPage={setAuthPage} />
+        <Toast
+          toast={toast}
+          onClose={() => setToast(null)}
+        />
+      </>
+    );
+  }
+
+  if (
+    (authPage === "Login" ||
+      authPage === "Signup") &&
+    !token
+  ) {
+    return (
+      <>
+        <AuthPage
+          type={authPage}
+          setAuthPage={setAuthPage}
+          onAuth={handleAuth}
+          loading={loading}
+        />
+
+        <Toast
+          toast={toast}
+          onClose={() => setToast(null)}
+        />
+      </>
+    );
+  }
+
+  let content = null;
+
+  if (page === "Dashboard") {
+    content = (
+      <Dashboard
+        tasks={tasks}
+        setPage={setPage}
+        openTaskModal={openTaskModal}
+        onToggle={toggleTask}
+      />
+    );
+  }
+
+  if (page === "My Tasks") {
+    content = (
+      <TasksPage
+        tasks={tasks}
+        search={search}
+        openTaskModal={openTaskModal}
+        onToggle={toggleTask}
+        onEdit={openTaskModal}
+        onDelete={removeTask}
+      />
+    );
+  }
+
+  if (page === "Calendar") {
+    content = <CalendarPage tasks={tasks} />;
+  }
+
+  if (page === "Analytics") {
+    content = <AnalyticsPage tasks={tasks} />;
+  }
+
+  if (page === "Team") {
+    content = (
+      <TeamPage
+        team={team}
+        members={members}
+        invitations={invitations}
+        openInvite={() => setInviteModal(true)}
+        onCancelInvite={cancelInvitation}
+      />
+    );
+  }
+
+  if (page === "Settings") {
+    content = (
+      <SettingsPage
+        user={user}
+        theme={theme}
+        setTheme={setTheme}
+        onProfileUpdate={saveProfile}
+      />
+    );
+  }
+
+  return (
+    <div className="tf-app">
+      <div className="background-grid" />
+      <div className="background-glow glow-one" />
+      <div className="background-glow glow-two" />
+
+      <Sidebar
+        page={page}
+        setPage={setPage}
+        mobileOpen={mobileOpen}
+        setMobileOpen={setMobileOpen}
+        user={user}
+        onLogout={logout}
+      />
+
+      <main className="tf-main">
+        <Topbar
+          onMenu={() => setMobileOpen(true)}
+          search={search}
+          setSearch={setSearch}
+          theme={theme}
+          setTheme={setTheme}
+          user={user}
+          onLogout={logout}
+        />
+
+        {content}
+      </main>
+
+      {taskModal && (
+        <TaskModal
+          task={taskModal.task}
+          onClose={() => setTaskModal(null)}
+          onSave={saveTask}
+          loading={taskLoading}
+        />
+      )}
+
+      {inviteModal && (
+        <InviteModal
+          onClose={() => setInviteModal(false)}
+          onInvite={inviteMember}
+          loading={loading}
+        />
+      )}
+
+      <Toast
+        toast={toast}
+        onClose={() => setToast(null)}
+      />
+    </div>
+  );
+}
+
+export default App;

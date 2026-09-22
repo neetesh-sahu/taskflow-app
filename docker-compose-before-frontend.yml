@@ -1,0 +1,225 @@
+services:
+
+  # =====================================================
+  # DATABASE
+  # =====================================================
+
+  postgres:
+    image: postgres:16
+    container_name: taskflow-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: taskflow
+      POSTGRES_USER: taskflow
+      POSTGRES_PASSWORD: taskflow_password
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U taskflow -d taskflow"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - taskflow-network
+
+
+  # =====================================================
+  # AUTH SERVICE
+  # =====================================================
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+
+    container_name: taskflow-auth
+    restart: unless-stopped
+
+    environment:
+      PORT: 5001
+
+      JWT_SECRET: taskflow_super_secret_key_change_this_later
+
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: taskflow
+      DB_USER: taskflow
+      DB_PASSWORD: taskflow_password
+
+    expose:
+      - "5001"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    networks:
+      - taskflow-network
+
+
+  # =====================================================
+  # TASK SERVICE
+  # =====================================================
+
+  task-service:
+    build:
+      context: ./services/task-service
+      dockerfile: Dockerfile
+
+    container_name: taskflow-task
+    restart: unless-stopped
+
+    environment:
+      PORT: 5002
+
+      JWT_SECRET: taskflow_super_secret_key_change_this_later
+
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: taskflow
+      DB_USER: taskflow
+      DB_PASSWORD: taskflow_password
+
+    expose:
+      - "5002"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    networks:
+      - taskflow-network
+
+
+  # =====================================================
+  # USER SERVICE
+  # =====================================================
+
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+
+    container_name: taskflow-user
+    restart: unless-stopped
+
+    environment:
+      PORT: 5003
+
+      JWT_SECRET: taskflow_super_secret_key_change_this_later
+
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: taskflow
+      DB_USER: taskflow
+      DB_PASSWORD: taskflow_password
+
+    expose:
+      - "5003"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    networks:
+      - taskflow-network
+
+
+  # =====================================================
+  # TEAM SERVICE
+  # =====================================================
+
+  team-service:
+    build:
+      context: ./team-service
+      dockerfile: Dockerfile
+
+    container_name: taskflow-team
+    restart: unless-stopped
+
+    environment:
+      PORT: 5004
+
+      JWT_SECRET: taskflow_super_secret_key_change_this_later
+
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: taskflow
+      DB_USER: taskflow
+      DB_PASSWORD: taskflow_password
+
+    expose:
+      - "5004"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    networks:
+      - taskflow-network
+
+
+  # =====================================================
+  # API GATEWAY
+  # =====================================================
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+
+    container_name: taskflow-gateway
+    restart: unless-stopped
+
+    environment:
+      PORT: 5000
+
+      AUTH_SERVICE_URL: http://auth-service:5001
+      TASK_SERVICE_URL: http://task-service:5002
+      USER_SERVICE_URL: http://user-service:5003
+      TEAM_SERVICE_URL: http://team-service:5004
+
+    ports:
+      - "5000:5000"
+
+    depends_on:
+      auth-service:
+        condition: service_started
+      task-service:
+        condition: service_started
+      user-service:
+        condition: service_started
+      team-service:
+        condition: service_started
+
+    networks:
+      - taskflow-network
+
+
+# =====================================================
+# NETWORK
+# =====================================================
+
+networks:
+  taskflow-network:
+    driver: bridge
+
+
+# =====================================================
+# VOLUME
+# =====================================================
+
+volumes:
+  postgres_data:
+    name: taskflow-postgres-data
