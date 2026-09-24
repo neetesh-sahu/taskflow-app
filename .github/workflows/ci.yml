@@ -18,14 +18,12 @@ jobs:
     runs-on: self-hosted
 
     steps:
-
       # ==========================================
       # CHECKOUT
       # ==========================================
 
       - name: Checkout Repository
         uses: actions/checkout@v4
-
 
       # ==========================================
       # NODE.JS
@@ -37,7 +35,6 @@ jobs:
           node-version: 22
           cache: npm
 
-
       # ==========================================
       # FRONTEND
       # ==========================================
@@ -47,7 +44,6 @@ jobs:
 
       - name: Build Frontend
         run: npm run build
-
 
       # ==========================================
       # MICROSERVICES DEPENDENCIES
@@ -73,9 +69,8 @@ jobs:
         run: npm ci
         working-directory: team-service
 
-
       # ==========================================
-      # AWS CREDENTIALS VIA OIDC
+      # AWS OIDC
       # ==========================================
 
       - name: Configure AWS Credentials
@@ -85,7 +80,6 @@ jobs:
           role-to-assume: arn:aws:iam::608942061496:role/TaskFlowGitHubActionsRole
           aws-region: us-east-1
 
-
       # ==========================================
       # AMAZON ECR LOGIN
       # ==========================================
@@ -93,7 +87,6 @@ jobs:
       - name: Login to Amazon ECR
         if: github.event_name == 'push'
         uses: aws-actions/amazon-ecr-login@v2
-
 
       # ==========================================
       # DOCKER HUB LOGIN
@@ -106,14 +99,12 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-
       # ==========================================
       # DOCKER BUILDX
       # ==========================================
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
 
       # ==========================================
       # FRONTEND IMAGE
@@ -132,7 +123,6 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-frontend:${{ github.sha }}
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-frontend:latest
 
-
       # ==========================================
       # GATEWAY IMAGE
       # ==========================================
@@ -149,7 +139,6 @@ jobs:
             608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-gateway:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-gateway:${{ github.sha }}
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-gateway:latest
-
 
       # ==========================================
       # AUTH IMAGE
@@ -168,7 +157,6 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-auth:${{ github.sha }}
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-auth:latest
 
-
       # ==========================================
       # TASK IMAGE
       # ==========================================
@@ -186,24 +174,22 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-task:${{ github.sha }}
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-task:latest
 
-
       # ==========================================
       # USER IMAGE
       # ==========================================
 
       - name: Build and Push User Service
-      if: github.event_name == 'push'
-      uses: docker/build-push-action@v6
-      with:
-        context: ./services/user-service
-        file: ./services/user-service/Dockerfile
-        push: true
-        tags: |
-          608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-user:${{ github.sha }}
-          608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-user:latest
-          ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-user:${{ github.sha }}
-          ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-user:latest
-
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./services/user-service
+          file: ./services/user-service/Dockerfile
+          push: true
+          tags: |
+            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-user:${{ github.sha }}
+            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-user:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-user:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-user:latest
 
       # ==========================================
       # TEAM IMAGE
