@@ -8,11 +8,17 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    name: Build and Push TaskFlow Images
+    runs-on: self-hosted
 
     steps:
+
       # ==========================================
       # CHECKOUT
       # ==========================================
@@ -69,6 +75,39 @@ jobs:
 
 
       # ==========================================
+      # AWS CREDENTIALS VIA OIDC
+      # ==========================================
+
+      - name: Configure AWS Credentials
+        if: github.event_name == 'push'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::608942061496:role/TaskFlowGitHubActionsRole
+          aws-region: us-east-1
+
+
+      # ==========================================
+      # AMAZON ECR LOGIN
+      # ==========================================
+
+      - name: Login to Amazon ECR
+        if: github.event_name == 'push'
+        uses: aws-actions/amazon-ecr-login@v2
+
+
+      # ==========================================
+      # DOCKER HUB LOGIN
+      # ==========================================
+
+      - name: Login to Docker Hub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+
+      # ==========================================
       # DOCKER BUILDX
       # ==========================================
 
@@ -77,29 +116,21 @@ jobs:
 
 
       # ==========================================
-      # DOCKER HUB LOGIN
-      # ==========================================
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-
-      # ==========================================
       # FRONTEND IMAGE
       # ==========================================
 
       - name: Build and Push Frontend
+        if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-frontend:latest
+            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-frontend:${{ github.sha }}
+            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-frontend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-frontend:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-frontend:latest
 
 
       # ==========================================
@@ -107,14 +138,17 @@ jobs:
       # ==========================================
 
       - name: Build and Push Gateway
+        if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
           context: ./gateway
           file: ./gateway/Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-gateway:latest
+            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-gateway:${{ github.sha }}
+            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-gateway:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-gateway:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-gateway:latest
 
 
       # ==========================================
@@ -122,14 +156,17 @@ jobs:
       # ==========================================
 
       - name: Build and Push Auth Service
+        if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
           context: ./services/auth-service
           file: ./services/auth-service/Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-auth:latest
+            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-auth:${{ github.sha }}
+            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-auth:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-auth:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-auth:latest
 
 
       # ==========================================
@@ -137,14 +174,17 @@ jobs:
       # ==========================================
 
       - name: Build and Push Task Service
+        if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
           context: ./services/task-service
           file: ./services/task-service/Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-task:latest
+            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-task:${{ github.sha }}
+            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-task:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-task:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-task:latest
 
 
       # ==========================================
@@ -152,14 +192,17 @@ jobs:
       # ==========================================
 
       - name: Build and Push User Service
-        uses: docker/build-push-action@v6
-        with:
-          context: ./services/user-service
-          file: ./services/user-service/Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-user:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-user:${{ github.sha }}
+      if: github.event_name == 'push'
+      uses: docker/build-push-action@v6
+      with:
+        context: ./services/user-service
+        file: ./services/user-service/Dockerfile
+        push: true
+        tags: |
+          608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-user:${{ github.sha }}
+          608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-user:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-user:${{ github.sha }}
+          ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-user:latest
 
 
       # ==========================================
@@ -167,11 +210,14 @@ jobs:
       # ==========================================
 
       - name: Build and Push Team Service
+        if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
           context: ./team-service
           file: ./team-service/Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-team:latest
+            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-team:${{ github.sha }}
+            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-team:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-team:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-team:latest
