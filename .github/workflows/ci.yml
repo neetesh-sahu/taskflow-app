@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+
   pull_request:
     branches:
       - main
@@ -12,66 +13,51 @@ permissions:
   contents: read
   id-token: write
 
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: 608942061496.dkr.ecr.us-east-1.amazonaws.com
+
 jobs:
+
   build-and-push:
     name: Build and Push TaskFlow Images
     runs-on: self-hosted
 
     steps:
-      # ==========================================
-      # CHECKOUT
-      # ==========================================
 
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-
-      # ==========================================
-      # NODE.JS
-      # ==========================================
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
+          node-version: "22"
 
-      # ==========================================
-      # FRONTEND
-      # ==========================================
-
-      - name: Install Frontend Dependencies
+      - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build Frontend
+      - name: Build frontend
         run: npm run build
 
-      # ==========================================
-      # MICROSERVICES DEPENDENCIES
-      # ==========================================
-
-      - name: Install Gateway Dependencies
-        run: npm ci
-        working-directory: gateway
-
-      - name: Install Auth Service Dependencies
-        run: npm ci
+      - name: Install Auth Service dependencies
         working-directory: services/auth-service
-
-      - name: Install Task Service Dependencies
         run: npm ci
+
+      - name: Install Task Service dependencies
         working-directory: services/task-service
-
-      - name: Install User Service Dependencies
         run: npm ci
+
+      - name: Install User Service dependencies
         working-directory: services/user-service
-
-      - name: Install Team Service Dependencies
         run: npm ci
-        working-directory: team-service
 
-      # ==========================================
-      # AWS OIDC
-      # ==========================================
+      - name: Install Team Service dependencies
+        working-directory: team-service
+        run: npm ci
+
+      - name: Install Gateway dependencies
+        working-directory: gateway
+        run: npm ci
 
       - name: Configure AWS Credentials
         if: github.event_name == 'push'
@@ -80,17 +66,9 @@ jobs:
           role-to-assume: arn:aws:iam::608942061496:role/TaskFlowGitHubActionsRole
           aws-region: us-east-1
 
-      # ==========================================
-      # AMAZON ECR LOGIN
-      # ==========================================
-
       - name: Login to Amazon ECR
         if: github.event_name == 'push'
         uses: aws-actions/amazon-ecr-login@v2
-
-      # ==========================================
-      # DOCKER HUB LOGIN
-      # ==========================================
 
       - name: Login to Docker Hub
         if: github.event_name == 'push'
@@ -99,111 +77,128 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # ==========================================
-      # DOCKER BUILDX
-      # ==========================================
-
-      - name: Set up Docker Buildx
+      - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      # ==========================================
-      # FRONTEND IMAGE
-      # ==========================================
 
       - name: Build and Push Frontend
         if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile
           push: true
           tags: |
-            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-frontend:${{ github.sha }}
-            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-frontend:latest
+            ${{ env.ECR_REGISTRY }}/taskflow-frontend:${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/taskflow-frontend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-frontend:${{ github.sha }}
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-frontend:latest
-
-      # ==========================================
-      # GATEWAY IMAGE
-      # ==========================================
 
       - name: Build and Push Gateway
         if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
           context: ./gateway
-          file: ./gateway/Dockerfile
           push: true
           tags: |
-            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-gateway:${{ github.sha }}
-            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-gateway:latest
+            ${{ env.ECR_REGISTRY }}/taskflow-gateway:${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/taskflow-gateway:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-gateway:${{ github.sha }}
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-gateway:latest
-
-      # ==========================================
-      # AUTH IMAGE
-      # ==========================================
 
       - name: Build and Push Auth Service
         if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
           context: ./services/auth-service
-          file: ./services/auth-service/Dockerfile
           push: true
           tags: |
-            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-auth:${{ github.sha }}
-            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-auth:latest
+            ${{ env.ECR_REGISTRY }}/taskflow-auth:${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/taskflow-auth:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-auth:${{ github.sha }}
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-auth:latest
-
-      # ==========================================
-      # TASK IMAGE
-      # ==========================================
 
       - name: Build and Push Task Service
         if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
           context: ./services/task-service
-          file: ./services/task-service/Dockerfile
           push: true
           tags: |
-            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-task:${{ github.sha }}
-            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-task:latest
+            ${{ env.ECR_REGISTRY }}/taskflow-task:${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/taskflow-task:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-task:${{ github.sha }}
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-task:latest
-
-      # ==========================================
-      # USER IMAGE
-      # ==========================================
 
       - name: Build and Push User Service
         if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
           context: ./services/user-service
-          file: ./services/user-service/Dockerfile
           push: true
           tags: |
-            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-user:${{ github.sha }}
-            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-user:latest
+            ${{ env.ECR_REGISTRY }}/taskflow-user:${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/taskflow-user:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-user:${{ github.sha }}
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-user:latest
-
-      # ==========================================
-      # TEAM IMAGE
-      # ==========================================
 
       - name: Build and Push Team Service
         if: github.event_name == 'push'
         uses: docker/build-push-action@v6
         with:
           context: ./team-service
-          file: ./team-service/Dockerfile
           push: true
           tags: |
-            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-team:${{ github.sha }}
-            608942061496.dkr.ecr.us-east-1.amazonaws.com/taskflow-team:latest
+            ${{ env.ECR_REGISTRY }}/taskflow-team:${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/taskflow-team:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-team:${{ github.sha }}
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-team:latest
+
+
+  deploy:
+    name: Deploy TaskFlow to EC2
+    needs: build-and-push
+    if: github.event_name == 'push'
+    runs-on: self-hosted
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::608942061496:role/TaskFlowGitHubActionsRole
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Prepare deployment directory
+        run: |
+          mkdir -p ~/taskflow-deploy
+          cp docker-compose.prod.yml ~/taskflow-deploy/docker-compose.yml
+
+      - name: Create production environment
+        run: |
+          cat > ~/taskflow-deploy/.env <<EOF
+          POSTGRES_DB=taskflow
+          POSTGRES_USER=taskflow
+          POSTGRES_PASSWORD=${{ secrets.TASKFLOW_DB_PASSWORD }}
+          JWT_SECRET=${{ secrets.TASKFLOW_JWT_SECRET }}
+          AWS_REGION=us-east-1
+          ECR_REGISTRY=608942061496.dkr.ecr.us-east-1.amazonaws.com
+          IMAGE_TAG=latest
+          EOF
+
+      - name: Deploy containers
+        working-directory: ~/taskflow-deploy
+        run: |
+          docker compose pull
+          docker compose up -d --remove-orphans
+
+      - name: Verify deployment
+        working-directory: ~/taskflow-deploy
+        run: |
+          docker compose ps
+          curl -f http://localhost/ || exit 1
+          echo "TaskFlow deployment successful"
