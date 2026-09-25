@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-
   pull_request:
     branches:
       - main
@@ -18,13 +17,11 @@ env:
   ECR_REGISTRY: 608942061496.dkr.ecr.us-east-1.amazonaws.com
 
 jobs:
-
   build-and-push:
     name: Build and Push TaskFlow Images
     runs-on: self-hosted
 
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -152,7 +149,6 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-team:${{ github.sha }}
             ${{ secrets.DOCKERHUB_USERNAME }}/taskflow-team:latest
 
-
   deploy:
     name: Deploy TaskFlow to EC2
     needs: build-and-push
@@ -160,7 +156,6 @@ jobs:
     runs-on: self-hosted
 
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -175,12 +170,12 @@ jobs:
 
       - name: Prepare deployment directory
         run: |
-          mkdir -p ~/taskflow-deploy
-          cp docker-compose.prod.yml ~/taskflow-deploy/docker-compose.yml
+          mkdir -p "$HOME/taskflow-deploy"
+          cp docker-compose.prod.yml "$HOME/taskflow-deploy/docker-compose.yml"
 
       - name: Create production environment
         run: |
-          cat > ~/taskflow-deploy/.env <<EOF
+          cat > "$HOME/taskflow-deploy/.env" <<EOF
           POSTGRES_DB=taskflow
           POSTGRES_USER=taskflow
           POSTGRES_PASSWORD=${{ secrets.TASKFLOW_DB_PASSWORD }}
@@ -191,14 +186,14 @@ jobs:
           EOF
 
       - name: Deploy containers
-        working-directory: ~/taskflow-deploy
         run: |
+          cd "$HOME/taskflow-deploy"
           docker compose pull
           docker compose up -d --remove-orphans
 
       - name: Verify deployment
-        working-directory: ~/taskflow-deploy
         run: |
+          cd "$HOME/taskflow-deploy"
           docker compose ps
           curl -f http://localhost/ || exit 1
           echo "TaskFlow deployment successful"
