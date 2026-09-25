@@ -1,17 +1,13 @@
-const API_URL = "http://localhost:5000/api";
+const API_URL = "/api";
 
 const request = async (endpoint, options = {}) => {
   const controller = new AbortController();
-
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, 15000);
+  const timeout = setTimeout(() => controller.abort(), 15000);
 
   try {
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
       signal: controller.signal,
-
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
@@ -59,10 +55,6 @@ const request = async (endpoint, options = {}) => {
   }
 };
 
-/* =========================================================
-   AUTH
-========================================================= */
-
 export const signup = async (userData) =>
   request("/auth/signup", {
     method: "POST",
@@ -82,10 +74,6 @@ export const getProfile = async (token) =>
       Authorization: `Bearer ${token}`,
     },
   });
-
-/* =========================================================
-   TASKS
-========================================================= */
 
 export const getTasks = async (token) =>
   request("/tasks", {
@@ -121,10 +109,6 @@ export const deleteTask = async (token, taskId) =>
     },
   });
 
-/* =========================================================
-   USER
-========================================================= */
-
 export const updateProfile = async (token, userData) =>
   request("/users/profile", {
     method: "PUT",
@@ -133,10 +117,6 @@ export const updateProfile = async (token, userData) =>
     },
     body: JSON.stringify(userData),
   });
-
-/* =========================================================
-   TEAMS
-========================================================= */
 
 export const getTeams = async (token) =>
   request("/teams", {
@@ -163,11 +143,7 @@ export const getTeamMembers = async (token, teamId) =>
     },
   });
 
-export const createInvitation = async (
-  token,
-  teamId,
-  invitationData
-) =>
+export const createInvitation = async (token, teamId, invitationData) =>
   request(`/teams/${teamId}/invite`, {
     method: "POST",
     headers: {
@@ -176,14 +152,7 @@ export const createInvitation = async (
     body: JSON.stringify(invitationData),
   });
 
-/* =========================================================
-   INVITATIONS
-========================================================= */
-
-export const getInvitation = async (
-  token,
-  invitationToken
-) =>
+export const getInvitation = async (token, invitationToken) =>
   request(`/invitations/${invitationToken}`, {
     method: "GET",
     headers: token
@@ -193,10 +162,7 @@ export const getInvitation = async (
       : {},
   });
 
-export const acceptInvitation = async (
-  token,
-  invitationToken
-) =>
+export const acceptInvitation = async (token, invitationToken) =>
   request(`/invitations/${invitationToken}/accept`, {
     method: "POST",
     headers: {
