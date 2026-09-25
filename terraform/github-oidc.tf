@@ -1,7 +1,3 @@
-# =====================================================
-# GITHUB ACTIONS OIDC PROVIDER
-# =====================================================
-
 data "tls_certificate" "github" {
   url = "https://token.actions.githubusercontent.com"
 }
@@ -16,15 +12,7 @@ resource "aws_iam_openid_connect_provider" "github" {
   thumbprint_list = [
     data.tls_certificate.github.certificates[0].sha1_fingerprint
   ]
-
-  tags = {
-    Name = "taskflow-github-oidc"
-  }
 }
-
-# =====================================================
-# GITHUB ACTIONS IAM ROLE
-# =====================================================
 
 resource "aws_iam_role" "github_actions" {
   name = "TaskFlowGitHubActionsRole"
@@ -54,15 +42,7 @@ resource "aws_iam_role" "github_actions" {
       }
     ]
   })
-
-  tags = {
-    Name = "TaskFlow GitHub Actions Role"
-  }
 }
-
-# =====================================================
-# ECR PUSH PERMISSIONS
-# =====================================================
 
 resource "aws_iam_role_policy" "github_ecr" {
   name = "TaskFlowECRPushPolicy"
@@ -86,6 +66,7 @@ resource "aws_iam_role_policy" "github_ecr" {
 
         Action = [
           "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
           "ecr:CompleteLayerUpload",
           "ecr:InitiateLayerUpload",
           "ecr:PutImage",
