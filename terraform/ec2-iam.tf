@@ -1,7 +1,3 @@
-# =====================================================
-# EC2 IAM ROLE
-# =====================================================
-
 resource "aws_iam_role" "taskflow_ec2" {
   name = "TaskFlowEC2Role"
 
@@ -22,13 +18,9 @@ resource "aws_iam_role" "taskflow_ec2" {
   })
 
   tags = {
-    Name = "TaskFlow EC2 Role"
+    Name = "TaskFlowEC2Role"
   }
 }
-
-# =====================================================
-# ECR PULL POLICY
-# =====================================================
 
 resource "aws_iam_role_policy" "taskflow_ec2_ecr" {
   name = "TaskFlowEC2ECRPullPolicy"
@@ -53,6 +45,7 @@ resource "aws_iam_role_policy" "taskflow_ec2_ecr" {
         Action = [
           "ecr:BatchCheckLayerAvailability",
           "ecr:BatchGetImage",
+          "ecr:DescribeImages",
           "ecr:GetDownloadUrlForLayer"
         ]
 
@@ -65,11 +58,11 @@ resource "aws_iam_role_policy" "taskflow_ec2_ecr" {
   })
 }
 
-# =====================================================
-# INSTANCE PROFILE
-# =====================================================
-
 resource "aws_iam_instance_profile" "taskflow_ec2" {
   name = "TaskFlowEC2InstanceProfile"
   role = aws_iam_role.taskflow_ec2.name
+
+  tags = {
+    Name = "TaskFlowEC2InstanceProfile"
+  }
 }
