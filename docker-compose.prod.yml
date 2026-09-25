@@ -1,0 +1,142 @@
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: taskflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - taskflow-postgres-data:/var/lib/postgresql/data
+    networks:
+      - taskflow-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth:
+    image: ${ECR_REGISTRY}/taskflow-auth:${IMAGE_TAG}
+    container_name: taskflow-auth
+    restart: unless-stopped
+    environment:
+      PORT: 5001
+      JWT_SECRET: ${JWT_SECRET}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+    expose:
+      - "5001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - taskflow-network
+
+  task:
+    image: ${ECR_REGISTRY}/taskflow-task:${IMAGE_TAG}
+    container_name: taskflow-task
+    restart: unless-stopped
+    environment:
+      PORT: 5002
+      JWT_SECRET: ${JWT_SECRET}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+    expose:
+      - "5002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - taskflow-network
+
+  user:
+    image: ${ECR_REGISTRY}/taskflow-user:${IMAGE_TAG}
+    container_name: taskflow-user
+    restart: unless-stopped
+    environment:
+      PORT: 5003
+      JWT_SECRET: ${JWT_SECRET}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+    expose:
+      - "5003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - taskflow-network
+
+  team:
+    image: ${ECR_REGISTRY}/taskflow-team:${IMAGE_TAG}
+    container_name: taskflow-team
+    restart: unless-stopped
+    environment:
+      PORT: 5004
+      JWT_SECRET: ${JWT_SECRET}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+    expose:
+      - "5004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - taskflow-network
+
+  gateway:
+    image: ${ECR_REGISTRY}/taskflow-gateway:${IMAGE_TAG}
+    container_name: taskflow-gateway
+    restart: unless-stopped
+    environment:
+      PORT: 5000
+      AUTH_SERVICE_URL: http://auth:5001
+      TASK_SERVICE_URL: http://task:5002
+      USER_SERVICE_URL: http://user:5003
+      TEAM_SERVICE_URL: http://team:5004
+    expose:
+      - "5000"
+    depends_on:
+      - auth
+      - task
+      - user
+      - team
+    networks:
+      - taskflow-network
+
+  frontend:
+    image: ${ECR_REGISTRY}/taskflow-frontend:${IMAGE_TAG}
+    container_name: taskflow-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - gateway
+    networks:
+      - taskflow-network
+
+volumes:
+  taskflow-postgres-data:
+    name: taskflow-postgres-data
+
+networks:
+  taskflow-network:
+    driver: bridge
